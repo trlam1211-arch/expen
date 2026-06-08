@@ -154,7 +154,7 @@ ionicinit.min.js 的使用方式：
           <ion-input id="expense-date" type="date"></ion-input>
         </ion-item>
 
-        <ion-button expand="block" shape="round" class="ion-margin-top" onclick="saveExpense()">
+        <ion-button expand="block" shape="round" class="ion-margin-top" onclick="saveExpense(event)">
           <ion-icon slot="start" name="save-outline"></ion-icon>
           儲存支出
         </ion-button>
@@ -204,6 +204,23 @@ ionicinit.min.js 的使用方式：
         return 'HK$' + Number(amount).toFixed(2);
       }
 
+      function getActivePage(tagName) {
+        const nav = document.querySelector('ion-nav');
+        const pages = nav ? nav.querySelectorAll(tagName) : [];
+        return pages.length ? pages[pages.length - 1] : document.querySelector(tagName);
+      }
+
+      function getIonInputValue(el) {
+        if (!el) return '';
+        const native = el.shadowRoot?.querySelector('input, textarea');
+        if (native) return (native.value || '').trim();
+        return String(el.value ?? '').trim();
+      }
+
+      function setIonInputValue(el, val) {
+        if (el) el.value = val;
+      }
+
       function getLatestRecord(records) {
         if (!records.length) return null;
         return [...records].sort((a, b) => {
@@ -213,10 +230,12 @@ ionicinit.min.js 的使用方式：
       }
 
       function updateHomeStats() {
+        const page = getActivePage('page-home');
+        if (!page) return;
         const records = getRecords();
         const latest = getLatestRecord(records);
-        document.getElementById('home-total-count').textContent = records.length;
-        document.getElementById('home-latest-amount').textContent =
+        page.querySelector('#home-total-count').textContent = records.length;
+        page.querySelector('#home-latest-amount').textContent =
           latest ? formatHKD(latest.amount) : '—';
       }
 
@@ -233,26 +252,31 @@ ionicinit.min.js 的使用方式：
       }
 
       function resetExpenseForm() {
-        document.getElementById('expense-title').value = '';
-        document.getElementById('expense-amount').value = '';
-        document.getElementById('expense-date').value = new Date().toISOString().slice(0, 10);
-        document.getElementById('expense-preview-amount').textContent = 'HK$0.00';
+        const page = getActivePage('page-expense');
+        if (!page) return;
 
-        const amountInput = document.getElementById('expense-amount');
-        amountInput.removeEventListener('input', updateExpensePreview);
-        amountInput.addEventListener('input', updateExpensePreview);
+        setIonInputValue(page.querySelector('#expense-title'), '');
+        setIonInputValue(page.querySelector('#expense-amount'), '');
+        setIonInputValue(page.querySelector('#expense-date'), new Date().toISOString().slice(0, 10));
+        page.querySelector('#expense-preview-amount').textContent = 'HK$0.00';
+
+        const amountInput = page.querySelector('#expense-amount');
+        amountInput.removeEventListener('ionInput', updateExpensePreview);
+        amountInput.addEventListener('ionInput', updateExpensePreview);
       }
 
-      function updateExpensePreview() {
-        const val = parseFloat(document.getElementById('expense-amount').value);
-        document.getElementById('expense-preview-amount').textContent =
+      function updateExpensePreview(e) {
+        const page = e?.target?.closest('page-expense') || getActivePage('page-expense');
+        const val = parseFloat(getIonInputValue(page?.querySelector('#expense-amount')));
+        page.querySelector('#expense-preview-amount').textContent =
           isNaN(val) || val < 0 ? 'HK$0.00' : formatHKD(val);
       }
 
-      function saveExpense() {
-        const title = document.getElementById('expense-title').value.trim();
-        const amountVal = document.getElementById('expense-amount').value.trim();
-        const date = document.getElementById('expense-date').value;
+      function saveExpense(event) {
+        const page = event.target.closest('page-expense') || getActivePage('page-expense');
+        const title = getIonInputValue(page.querySelector('#expense-title'));
+        const amountVal = getIonInputValue(page.querySelector('#expense-amount'));
+        const date = getIonInputValue(page.querySelector('#expense-date'));
 
         if (!title) {
           presentAlert('輸入錯誤', '請輸入支出項目');
@@ -279,14 +303,15 @@ ionicinit.min.js 的使用方式：
       }
 
       function renderRecords() {
+        const page = getActivePage('page-records');
         const records = getRecords().sort((a, b) => {
           if (a.date !== b.date) return b.date.localeCompare(a.date);
           return b.id - a.id;
         });
 
-        const listEl = document.getElementById('records-list');
-        const emptyEl = document.getElementById('records-empty');
-        const clearBtn = document.getElementById('btn-clear-all');
+        const listEl = page.querySelector('#records-list');
+        const emptyEl = page.querySelector('#records-empty');
+        const clearBtn = page.querySelector('#btn-clear-all');
 
         if (!records.length) {
           listEl.innerHTML = '';
